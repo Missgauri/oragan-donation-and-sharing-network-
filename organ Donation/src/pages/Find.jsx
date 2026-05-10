@@ -1,62 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Search, Filter, MapPin, Activity, Droplet } from 'lucide-react';
-import { supabase } from '../supabaseClient';
+import { useOrgans } from '../hooks/useOrgans';
+import { fetchOrgans } from '../services/organService';
 import './Find.css';
 
-const MOCK_RESULTS = [
-  { id: 1, organ: 'Kidney', bloodType: 'O+', location: 'Delhi, IN', urgency: 'High', dateAdded: '2023-10-25' },
-  { id: 2, organ: 'Liver (Partial)', bloodType: 'A-', location: 'Mumbai, MH', urgency: 'Medium', dateAdded: '2023-10-26' },
-  { id: 3, organ: 'Heart', bloodType: 'AB+', location: 'Bangalore, KA', urgency: 'Critical', dateAdded: '2023-10-27' },
-  { id: 4, organ: 'Lungs', bloodType: 'O-', location: 'Chennai, TN', urgency: 'High', dateAdded: '2023-10-28' },
-];
-
 const Find = () => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const { organs, setOrgans } = useOrgans();
+  const [searchTerm, setSearchTerm]         = useState('');
   const [bloodTypeFilter, setBloodTypeFilter] = useState('All');
-  const [organFilter, setOrganFilter] = useState('All');
-  const [isSearching, setIsSearching] = useState(false);
-  const [results, setResults] = useState(MOCK_RESULTS);
+  const [organFilter, setOrganFilter]         = useState('All');
+  const [isSearching, setIsSearching]         = useState(false);
   const [selectedDetails, setSelectedDetails] = useState(null);
-
-  // Load organs from DB on mount
-  useEffect(() => {
-    const loadOrgans = async () => {
-      try {
-        const { data, error } = await supabase.from('organs').select('*');
-        if (error) throw error;
-        if (data && data.length > 0) {
-          setResults(data);
-        }
-      } catch (err) {
-        console.warn("Could not load from Supabase, using mock data:", err);
-      }
-    };
-    loadOrgans();
-  }, []);
 
   const handleSearch = async (e) => {
     e.preventDefault();
     setIsSearching(true);
-    
     try {
-      const { data, error } = await supabase.from('organs').select('*');
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-        setResults(data);
-      }
+      const data = await fetchOrgans();
+      if (data.length > 0) setOrgans(data);
     } catch (err) {
-      console.warn("Using mock data. (Supabase connection missing or empty)", err);
-      // Fallback to mock results already in state
+      console.warn('Using cached data:', err);
     } finally {
       setIsSearching(false);
     }
   };
 
-  const filteredResults = results.filter(item => {
-    const matchSearch = item.location.toLowerCase().includes(searchTerm.toLowerCase()) || item.organ.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchBlood = bloodTypeFilter === 'All' || item.bloodType === bloodTypeFilter;
-    const matchOrgan = organFilter === 'All' || item.organ === organFilter;
+  const filteredResults = organs.filter(item => {
+    const matchSearch = item.location.toLowerCase().includes(searchTerm.toLowerCase())
+      || item.organ.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchBlood  = bloodTypeFilter === 'All' || item.bloodType === bloodTypeFilter;
+    const matchOrgan  = organFilter === 'All' || item.organ === organFilter;
     return matchSearch && matchBlood && matchOrgan;
   });
 
@@ -72,15 +45,15 @@ const Find = () => {
         <form className="search-form" onSubmit={handleSearch}>
           <div className="search-input-wrapper">
             <MapPin size={20} className="input-icon" />
-            <input 
-              type="text" 
-              placeholder="Search by location or organ..." 
+            <input
+              type="text"
+              placeholder="Search by location or organ..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="search-input"
             />
           </div>
-          
+
           <div className="filters-wrapper">
             <div className="filter-group">
               <Filter size={18} className="filter-icon" />
@@ -92,22 +65,15 @@ const Find = () => {
                 <option value="Lungs">Lungs</option>
               </select>
             </div>
-            
+
             <div className="filter-group">
               <Droplet size={18} className="filter-icon" />
               <select value={bloodTypeFilter} onChange={(e) => setBloodTypeFilter(e.target.value)}>
                 <option value="All">All Blood Types</option>
-                <option value="A+">A+</option>
-                <option value="A-">A-</option>
-                <option value="B+">B+</option>
-                <option value="B-">B-</option>
-                <option value="O+">O+</option>
-                <option value="O-">O-</option>
-                <option value="AB+">AB+</option>
-                <option value="AB-">AB-</option>
+                {['A+','A-','B+','B-','O+','O-','AB+','AB-'].map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
-            
+
             <button type="submit" className="btn btn-primary search-btn">
               {isSearching ? 'Searching...' : 'Search Database'}
             </button>
@@ -119,7 +85,7 @@ const Find = () => {
         <div className="results-header">
           <h2>Available Matches <span className="badge">{isSearching ? 0 : filteredResults.length}</span></h2>
         </div>
-        
+
         {isSearching ? (
           <div className="loading-state glass-panel">
             <Activity size={40} className="spinner" />
@@ -161,7 +127,6 @@ const Find = () => {
         )}
       </div>
 
-      {/* Modal Popup */}
       {selectedDetails && (
         <div className="modal-backdrop" onClick={() => setSelectedDetails(null)}>
           <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
