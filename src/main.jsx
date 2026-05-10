@@ -1,13 +1,17 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider }     from './context/AuthContext';
+import { RealtimeProvider } from './context/RealtimeContext';
 import App from './App.jsx';
 import './index.css';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
+    {/* AuthProvider must wrap RealtimeProvider — realtime hooks depend on useAuth */}
     <AuthProvider>
-      <App />
+      <RealtimeProvider>
+        <App />
+      </RealtimeProvider>
     </AuthProvider>
   </StrictMode>
 );

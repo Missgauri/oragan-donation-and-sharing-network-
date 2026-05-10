@@ -1,0 +1,44 @@
+.live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.2rem 0.65rem;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.live-indicator--on {
+  color: var(--color-accent);
+  background-color: rgba(255, 77, 77, 0.1);
+}
+
+.live-indicator--off {
+  color: var(--color-text-muted);
+  background-color: var(--color-bg-light);
+}
+
+.live-indicator--sm { font-size: 0.75rem; padding: 0.15rem 0.5rem; }
+.live-indicator--md { font-size: 0.82rem; }
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.live-indicator--on  .live-dot {
+  background-color: var(--color-accent);
+  animation: live-pulse 1.5s ease-in-out infinite;
+}
+
+.live-indicator--off .live-dot {
+  background-color: var(--color-text-muted);
+}
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1);    }
+  50%       { opacity: 0.4; transform: scale(0.85); }
+}
