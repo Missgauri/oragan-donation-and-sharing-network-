@@ -64,10 +64,8 @@ Our platform provides:
 
 # Team Contributions
 
-- Member 1: Frontend UI and responsive design
-- Member 2: Backend integration and database setup
-- Member 3: Authentication and API handling
-- Member 4: GitHub management, testing, and coordination
+- Gauri: Frontend UI and responsive design
+- pragati: Backend integration and database setup
 
 ---
 
@@ -84,7 +82,7 @@ Our platform provides:
 # Installation
 
 ```bash
-git clone <your-repo-link>
-cd project-name
+git clone <https://github.com/Missgauri/oragan-donation-and-sharing-network-/edit/main/README.md>
+cd organ-donation
 npm install
 npm run dev
