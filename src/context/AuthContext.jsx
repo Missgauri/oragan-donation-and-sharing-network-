@@ -1,60 +1,120 @@
 /**
  * context/AuthContext.jsx
- * ─────────────────────────────────────────────────────────────
- * Provides the current Supabase auth user and session to the
- * entire component tree via React Context.
+ * Provides auth user, session, profile (with role), and auth actions
+ * to the entire component tree.
  *
- * Usage:
- *   1. Wrap your app with <AuthProvider> (already done in main.jsx below)
- *   2. In any component: const { user, session, isLoading } = useAuth();
- *
- * The app currently works without authentication (public access via RLS).
- * This context is ready to activate when you add login/signup pages.
- * ─────────────────────────────────────────────────────────────
+ * Shape exposed via useAuth():
+ * {
+ *   user,        — Supabase auth user (or null)
+ *   session,     — Supabase session (or null)
+ *   profile,     — profiles table row: { role, full_name, email, ... } (or null)
+ *   role,        — shortcut: profile?.role (or null)
+ *   isLoading,   — true while session + profile are being fetched
+ *   isAuthenticated, — true when user is signed in
+ *   signUp, signIn, signOut, forgotPassword, resetPassword
+ * }
  */
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase }          from '../lib/supabase';
-import { onAuthStateChange } from '../services/authService';
+import {
+  signUp   as authSignUp,
+  signIn   as authSignIn,
+  signOut  as authSignOut,
+  forgotPassword as authForgotPassword,
+  resetPassword  as authResetPassword,
+  onAuthStateChange,
+} from '../services/authService';
+import { fetchProfile } from '../services/profileService';
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
-const AuthContext = createContext({
-  user:      null,
-  session:   null,
-  isLoading: true,
-});
+const AuthContext = createContext(null);
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
-/**
- * @param {{ children: React.ReactNode }} props
- */
 export const AuthProvider = ({ children }) => {
   const [user,      setUser]      = useState(null);
   const [session,   setSession]   = useState(null);
+  const [profile,   setProfile]   = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Load profile whenever the user changes
+  const loadProfile = useCallback(async (authUser) => {
+    if (!authUser) {
+      setProfile(null);
+      return;
+    }
+    const { data } = await fetchProfile(authUser.id);
+    setProfile(data ?? null);
+  }, []);
+
   useEffect(() => {
-    // 1. Load existing session on mount (handles page refresh)
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // 1. Restore existing session on mount
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      await loadProfile(session?.user ?? null);
       setIsLoading(false);
     });
 
-    // 2. Subscribe to future auth changes
-    const unsubscribe = onAuthStateChange((event, session) => {
+    // 2. React to future auth events (login, logout, token refresh)
+    const unsubscribe = onAuthStateChange(async (event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      await loadProfile(session?.user ?? null);
       setIsLoading(false);
     });
 
     return unsubscribe;
+  }, [loadProfile]);
+
+  // ─── Exposed actions ────────────────────────────────────────────────────────
+
+  const signUp = useCallback(async (params) => {
+    setIsLoading(true);
+    const result = await authSignUp(params);
+    setIsLoading(false);
+    return result;
   }, []);
 
+  const signIn = useCallback(async (email, password) => {
+    setIsLoading(true);
+    const result = await authSignIn(email, password);
+    setIsLoading(false);
+    return result;
+  }, []);
+
+  const signOut = useCallback(async () => {
+    const result = await authSignOut();
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+    return result;
+  }, []);
+
+  const forgotPassword = useCallback((email) => authForgotPassword(email), []);
+  const resetPassword  = useCallback((pwd)   => authResetPassword(pwd),    []);
+
+  // ─── Value ──────────────────────────────────────────────────────────────────
+
+  const value = {
+    user,
+    session,
+    profile,
+    role:            profile?.role ?? null,
+    isLoading,
+    isAuthenticated: !!user,
+    // actions
+    signUp,
+    signIn,
+    signOut,
+    forgotPassword,
+    resetPassword,
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, isLoading }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
@@ -62,22 +122,10 @@ export const AuthProvider = ({ children }) => {
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-/**
- * Access the current auth state from any component.
- *
- * @returns {{ user: import('@supabase/supabase-js').User|null, session: import('@supabase/supabase-js').Session|null, isLoading: boolean }}
- *
- * @example
- * const { user, isLoading } = useAuth();
- * if (isLoading) return <Spinner />;
- * if (!user) return <Navigate to="/login" />;
- */
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used inside <AuthProvider>');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>');
+  return ctx;
 };
 
 export default AuthContext;
