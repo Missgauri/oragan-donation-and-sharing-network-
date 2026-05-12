@@ -22,6 +22,12 @@ export const ROUTES = {
   DONATE:             '/donate',
   FIND:               '/find',
 
+  // Search
+  SEARCH:             '/search',
+
+  // Matching
+  MATCHING:           '/dashboard/matching',
+
   // Utility
   UNAUTHORIZED:       '/unauthorized',
   NOT_FOUND:          '*',

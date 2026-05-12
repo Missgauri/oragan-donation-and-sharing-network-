@@ -1,156 +1,220 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  HeartHandshake, CheckCircle, Activity, Clock,
-  FileText, Bell, ArrowRight, Droplet, MapPin, Eye
+  HeartHandshake, CheckCircle, Activity,
+  ArrowRight, Eye, FileText, Bell, Heart,
+  RefreshCw, Droplet,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROUTES } from '../routes/routeConfig';
-import { Card, Badge, Button, Alert, Table } from '../components/ui';
+import { useDonorDashboard } from '../hooks/useDonorDashboard';
+import DashboardSkeleton from '../components/common/DashboardSkeleton';
+import ErrorBanner from '../components/common/ErrorBanner';
+import { formatDate } from '../utils/formatDate';
 
-// ── Dummy data ────────────────────────────────────────────────────────────────
-const STATS = [
-  { label: 'Registration Status', value: 'Active',   icon: CheckCircle, color: 'bg-green-100 text-green-600',  trend: null },
-  { label: 'Organs Registered',   value: '2',        icon: HeartHandshake, color: 'bg-blue-100 text-blue-600', trend: '+1 this month' },
-  { label: 'Pending Matches',     value: '3',        icon: Activity,    color: 'bg-yellow-100 text-yellow-600', trend: 'Under review' },
-  { label: 'Lives Potentially Saved', value: '8',   icon: Clock,       color: 'bg-red-100 text-red-600',       trend: 'Est. impact' },
-];
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-const ACTIVITY = [
-  { id: 1, event: 'Donor profile verified by Apollo Hospital',   time: '2 hours ago',  type: 'success' },
-  { id: 2, event: 'Kidney match request received from Delhi NCR', time: '5 hours ago', type: 'info' },
-  { id: 3, event: 'Medical documents uploaded successfully',      time: '1 day ago',   type: 'success' },
-  { id: 4, event: 'Blood type confirmation pending',             time: '2 days ago',   type: 'warning' },
-  { id: 5, event: 'Registration submitted to national registry', time: '3 days ago',   type: 'success' },
-];
+const STATUS_STYLE = {
+  'Transporting':    'bg-blue-50 text-blue-600',
+  'Preparing Match': 'bg-amber-50 text-amber-600',
+  'Pending Review':  'bg-slate-100 text-slate-500',
+  'In Surgery':      'bg-red-50 text-red-600',
+};
 
-const REGISTERED_ORGANS = [
-  { id: 1, organ: 'Kidney',  bloodType: 'O+',  status: 'Active',  registeredOn: 'Oct 25, 2024' },
-  { id: 2, organ: 'Liver',   bloodType: 'O+',  status: 'Pending', registeredOn: 'Nov 02, 2024' },
-];
-
-const ORGAN_COLUMNS = [
-  { key: 'organ',        label: 'Organ' },
-  { key: 'bloodType',    label: 'Blood Type' },
-  { key: 'registeredOn', label: 'Registered On' },
-  {
-    key: 'status', label: 'Status',
-    render: (val) => (
-      <Badge variant={val === 'Active' ? 'success' : 'warning'} dot>{val}</Badge>
-    )
-  },
-];
-
-const QUICK_ACTIONS = [
-  { label: 'Register New Organ', icon: HeartHandshake, to: ROUTES.DONATE,   variant: 'primary' },
-  { label: 'View Matches',       icon: Eye,            to: ROUTES.FIND,     variant: 'outline' },
-  { label: 'Update Profile',     icon: FileText,       to: ROUTES.PROFILE,  variant: 'outline' },
-  { label: 'Emergency Contact',  icon: Bell,           to: ROUTES.EMERGENCY,variant: 'outline' },
+const ACTIONS = [
+  { label: 'Register New Organ', icon: HeartHandshake, to: ROUTES.DONATE,    primary: true  },
+  { label: 'View Matches',       icon: Eye,            to: ROUTES.MATCHING,  primary: false },
+  { label: 'Update Profile',     icon: FileText,       to: ROUTES.PROFILE,   primary: false },
+  { label: 'Emergency Contact',  icon: Bell,           to: ROUTES.EMERGENCY, primary: false },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
+
 const DonorDashboard = () => {
   const { user } = useAuth();
+  const { organs, matches, stats, activity, loading, error, refresh } = useDonorDashboard();
+  const name = user?.email?.split('@')[0] ?? 'Donor';
+
+  if (loading) return <DashboardSkeleton cards={4} rows={3} />;
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-6xl mx-auto space-y-5 sm:space-y-8">
 
-      {/* Welcome banner */}
-      <div className="bg-gradient-to-r from-blue-700 to-blue-500 rounded-2xl p-6 text-white">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold mb-1">
-              Welcome back, {user?.email?.split('@')[0]} 👋
-            </h1>
-            <p className="text-blue-100 text-sm">
-              Your generosity can save up to 8 lives. Thank you for being a donor.
-            </p>
-          </div>
-          <Link to={ROUTES.DONATE}>
-            <Button variant="secondary" rightIcon={<ArrowRight size={16} />}>
-              Register Organ
-            </Button>
+      {/* Heading */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">
+            Good morning, <span className="text-blue-700 capitalize">{name}</span>
+          </h1>
+          <p className="text-sm text-slate-400 mt-0.5">Here's an overview of your donor activity.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={refresh}
+            className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:bg-slate-50 transition-colors"
+            aria-label="Refresh"
+          >
+            <RefreshCw size={15} />
+          </button>
+          <Link
+            to={ROUTES.DONATE}
+            className="inline-flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm"
+          >
+            <HeartHandshake size={16} /> Register Organ <ArrowRight size={14} />
           </Link>
         </div>
       </div>
 
-      {/* Alert */}
-      <Alert variant="info" title="Action Required" dismissible>
-        Your blood type confirmation is pending. Please upload your latest medical report to complete verification.
-      </Alert>
+      {/* Error banner */}
+      {error && <ErrorBanner message={error} onRetry={refresh} />}
 
-      {/* Stat cards */}
+      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {STATS.map(({ label, value, icon: Icon, color, trend }) => (
-          <Card key={label} variant="default" padding="md">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm text-slate-500 mb-1">{label}</p>
-                <p className="text-2xl font-bold text-slate-800">{value}</p>
-                {trend && <p className="text-xs text-slate-400 mt-1">{trend}</p>}
-              </div>
-              <div className={`p-2.5 rounded-xl ${color}`}>
-                <Icon size={22} />
-              </div>
+        {[
+          { label: 'Registration',       value: stats.activeOrgans > 0 ? 'Active' : 'Pending', sub: 'Verified donor',       icon: CheckCircle,   iconBg: 'bg-emerald-50', iconColor: 'text-emerald-500', border: 'border-l-emerald-400' },
+          { label: 'Organs Registered',  value: stats.organsRegistered,                         sub: 'In national registry', icon: HeartHandshake,iconBg: 'bg-blue-50',    iconColor: 'text-blue-500',    border: 'border-l-blue-400'    },
+          { label: 'Pending Matches',    value: stats.pendingMatches,                            sub: 'Under review',         icon: Activity,      iconBg: 'bg-amber-50',   iconColor: 'text-amber-500',   border: 'border-l-amber-400'   },
+          { label: 'Active Matches',     value: stats.activeMatches,                             sub: 'In progress',          icon: Heart,         iconBg: 'bg-red-50',     iconColor: 'text-red-400',     border: 'border-l-red-400'     },
+        ].map(({ label, value, sub, icon: Icon, iconBg, iconColor, border }) => (
+          <div key={label} className={`bg-white rounded-2xl p-5 border border-slate-100 border-l-4 ${border} shadow-sm`}>
+            <div className="flex items-start justify-between mb-3">
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label}</p>
+              <div className={`${iconBg} p-2 rounded-lg`}><Icon size={16} className={iconColor} /></div>
             </div>
-          </Card>
+            <p className="text-2xl font-bold text-slate-800">{value}</p>
+            <p className="text-xs text-slate-400 mt-1">{sub}</p>
+          </div>
         ))}
       </div>
 
       {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* Registered organs table */}
-        <div className="lg:col-span-2 space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-slate-800">My Registered Organs</h2>
-            <Link to={ROUTES.DONATE} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
-              Add organ <ArrowRight size={14} />
+        {/* Registered organs */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <h2 className="text-sm font-semibold text-slate-700">Registered Organs</h2>
+            <Link to={ROUTES.DONATE} className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+              Add new <ArrowRight size={12} />
             </Link>
           </div>
-          <Table columns={ORGAN_COLUMNS} data={REGISTERED_ORGANS} />
+
+          {organs.length === 0 ? (
+            <div className="px-6 py-10 text-center text-slate-400">
+              <HeartHandshake size={32} className="mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No organs registered yet.</p>
+              <Link to={ROUTES.DONATE} className="text-xs text-blue-600 hover:underline mt-1 inline-block">Register your first organ →</Link>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[400px]">
+              <thead>
+                <tr className="bg-slate-50 text-xs text-slate-400 uppercase tracking-wide">
+                  <th className="text-left px-6 py-3 font-medium">Organ</th>
+                  <th className="text-left px-6 py-3 font-medium">Blood Type</th>
+                  <th className="text-left px-6 py-3 font-medium">Registered</th>
+                  <th className="text-left px-6 py-3 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {organs.map(o => (
+                  <tr key={o.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-4 font-medium text-slate-700">{o.organ_type || o.organType}</td>
+                    <td className="px-6 py-4 text-slate-500 flex items-center gap-1.5">
+                      <Droplet size={12} className="text-red-400" />{o.blood_type || o.bloodType}
+                    </td>
+                    <td className="px-6 py-4 text-slate-400">{formatDate(o.registered_at || o.created_at)}</td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
+                        o.is_available !== false ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${o.is_available !== false ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                        {o.is_available !== false ? 'Active' : 'Pending'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            </div>
+          )}
+
+          {/* Active matches */}
+          {matches.length > 0 && (
+            <>
+              <div className="px-6 py-3 border-t border-slate-100 bg-slate-50/50">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Active Matches</p>
+              </div>
+              <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[480px]">
+                <thead>
+                  <tr className="bg-slate-50 text-xs text-slate-400 uppercase tracking-wide">
+                    <th className="text-left px-6 py-3 font-medium">Patient</th>
+                    <th className="text-left px-6 py-3 font-medium">Organ</th>
+                    <th className="text-left px-6 py-3 font-medium">Score</th>
+                    <th className="text-left px-6 py-3 font-medium">Status</th>
+                    <th className="text-left px-6 py-3 font-medium">ETA</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {matches.slice(0, 3).map(m => (
+                    <tr key={m.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-4 text-slate-600">{m.patientRef}</td>
+                      <td className="px-6 py-4 font-medium text-slate-700">{m.organ}</td>
+                      <td className="px-6 py-4 font-semibold text-emerald-600">{m.matchScore}%</td>
+                      <td className="px-6 py-4">
+                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLE[m.status] || 'bg-slate-100 text-slate-500'}`}>
+                          {m.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-slate-400">{m.eta}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Quick actions */}
-        <div className="space-y-3">
-          <h2 className="text-base font-semibold text-slate-800">Quick Actions</h2>
-          <Card variant="default" padding="md">
-            <div className="space-y-2">
-              {QUICK_ACTIONS.map(({ label, icon: Icon, to, variant }) => (
-                <Link key={label} to={to}>
-                  <Button variant={variant} fullWidth leftIcon={<Icon size={16} />}
-                    className="justify-start mb-2">
-                    {label}
-                  </Button>
-                </Link>
-              ))}
-            </div>
-          </Card>
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100">
+            <h2 className="text-sm font-semibold text-slate-700">Quick Actions</h2>
+          </div>
+          <div className="p-4 space-y-2">
+            {ACTIONS.map(({ label, icon: Icon, to, primary }) => (
+              <Link key={label} to={to}
+                className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                  primary ? 'bg-blue-700 text-white hover:bg-blue-800' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                }`}>
+                <Icon size={16} />{label}
+                <ArrowRight size={13} className="ml-auto opacity-50" />
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Recent activity */}
-      <div className="space-y-3">
-        <h2 className="text-base font-semibold text-slate-800">Recent Activity</h2>
-        <Card variant="default" padding="none">
-          <ul className="divide-y divide-slate-100">
-            {ACTIVITY.map((item) => (
-              <li key={item.id} className="flex items-start gap-3 px-5 py-4">
-                <span className={`mt-1 w-2 h-2 rounded-full shrink-0 ${
-                  item.type === 'success' ? 'bg-green-500' :
-                  item.type === 'warning' ? 'bg-yellow-500' :
-                  'bg-blue-500'
-                }`} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-slate-700">{item.event}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{item.time}</p>
-                </div>
+      {/* Activity feed */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100">
+          <h2 className="text-sm font-semibold text-slate-700">Recent Activity</h2>
+        </div>
+        {activity.length === 0 ? (
+          <p className="px-6 py-8 text-sm text-slate-400 text-center">No recent activity.</p>
+        ) : (
+          <ul className="divide-y divide-slate-50">
+            {activity.map(item => (
+              <li key={item.id} className="flex items-center gap-4 px-6 py-4">
+                <span className={`w-2 h-2 rounded-full shrink-0 ${item.dot}`} />
+                <p className="flex-1 text-sm text-slate-600">{item.text}</p>
+                <span className="text-xs text-slate-300 whitespace-nowrap">{item.time}</span>
               </li>
             ))}
           </ul>
-        </Card>
+        )}
       </div>
-
     </div>
   );
 };

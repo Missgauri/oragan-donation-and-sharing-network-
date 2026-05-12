@@ -24,6 +24,8 @@ const ReceiverDashboard = lazy(() => import('../pages/ReceiverDashboard'));
 const HospitalDashboard = lazy(() => import('../pages/HospitalDashboard'));
 const AdminDashboard    = lazy(() => import('../pages/AdminDashboard'));
 const Dashboard         = lazy(() => import('../pages/Dashboard'));
+const MatchingDashboard = lazy(() => import('../pages/MatchingDashboard'));
+const SearchPage        = lazy(() => import('../pages/SearchPage'));
 
 // ── Loading fallback ─────────────────────────────────────────────────────────
 const PageLoader = () => (
@@ -56,8 +58,10 @@ const AppRoutes = () => (
       {/* ── Protected: any authenticated user (DashboardLayout) ── */}
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
-          <Route path={ROUTES.PROFILE}  element={<Profile />} />
-          <Route path="/dashboard"      element={<Dashboard />} />
+          <Route path={ROUTES.PROFILE}   element={<Profile />} />
+          <Route path="/dashboard"       element={<Dashboard />} />
+          <Route path={ROUTES.MATCHING}  element={<MatchingDashboard />} />
+          <Route path={ROUTES.SEARCH}    element={<SearchPage />} />
         </Route>
       </Route>
 
