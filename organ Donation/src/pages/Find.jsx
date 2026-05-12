@@ -1,182 +1,166 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Filter, MapPin, Activity, Droplet } from 'lucide-react';
-import { supabase } from '../supabaseClient';
-import './Find.css';
+import React, { useState } from 'react';
+import { Search, Loader2, SearchX } from 'lucide-react';
+import { useSearch } from '../hooks/useSearch';
+import {
+  SearchBar, FilterPanel, FilterChips,
+  OrganCard, ResultsHeader,
+} from '../components/search';
 
-const MOCK_RESULTS = [
-  { id: 1, organ: 'Kidney', bloodType: 'O+', location: 'Delhi, IN', urgency: 'High', dateAdded: '2023-10-25' },
-  { id: 2, organ: 'Liver (Partial)', bloodType: 'A-', location: 'Mumbai, MH', urgency: 'Medium', dateAdded: '2023-10-26' },
-  { id: 3, organ: 'Heart', bloodType: 'AB+', location: 'Bangalore, KA', urgency: 'Critical', dateAdded: '2023-10-27' },
-  { id: 4, organ: 'Lungs', bloodType: 'O-', location: 'Chennai, TN', urgency: 'High', dateAdded: '2023-10-28' },
-];
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+const SkeletonCard = () => (
+  <div className="bg-white rounded-2xl border border-slate-100 p-5 animate-pulse">
+    <div className="h-4 bg-slate-200 rounded w-1/2 mb-3" />
+    <div className="space-y-2 mb-4">
+      <div className="h-3 bg-slate-100 rounded w-2/3" />
+      <div className="h-3 bg-slate-100 rounded w-1/2" />
+    </div>
+    <div className="h-9 bg-slate-100 rounded-xl" />
+  </div>
+);
 
+// ── Page ──────────────────────────────────────────────────────────────────────
 const Find = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [bloodTypeFilter, setBloodTypeFilter] = useState('All');
-  const [organFilter, setOrganFilter] = useState('All');
-  const [isSearching, setIsSearching] = useState(false);
-  const [results, setResults] = useState(MOCK_RESULTS);
-  const [selectedDetails, setSelectedDetails] = useState(null);
+  const [selected, setSelected] = useState(null);
 
-  // Load organs from DB on mount
-  useEffect(() => {
-    const loadOrgans = async () => {
-      try {
-        const { data, error } = await supabase.from('organs').select('*');
-        if (error) throw error;
-        if (data && data.length > 0) {
-          setResults(data);
-        }
-      } catch (err) {
-        console.warn("Could not load from Supabase, using mock data:", err);
-      }
-    };
-    loadOrgans();
-  }, []);
+  const {
+    filters, updateFilter, resetFilters, activeFilterCount,
+    filteredOrgans, totalCounts, filteredCounts,
+    loading, refresh,
+  } = useSearch('organs');
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    setIsSearching(true);
-    
-    try {
-      const { data, error } = await supabase.from('organs').select('*');
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-        setResults(data);
-      }
-    } catch (err) {
-      console.warn("Using mock data. (Supabase connection missing or empty)", err);
-      // Fallback to mock results already in state
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const filteredResults = results.filter(item => {
-    const matchSearch = item.location.toLowerCase().includes(searchTerm.toLowerCase()) || item.organ.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchBlood = bloodTypeFilter === 'All' || item.bloodType === bloodTypeFilter;
-    const matchOrgan = organFilter === 'All' || item.organ === organFilter;
-    return matchSearch && matchBlood && matchOrgan;
-  });
+  const handleRequest = (organ) => setSelected(organ);
 
   return (
-    <div className="find-page container">
-      <div className="find-header text-center">
-        <Search size={48} className="header-icon" />
-        <h1 className="page-title">Organ & Tissue Finder</h1>
-        <p className="page-subtitle">Search the national database for compatible life-saving matches.</p>
-      </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
 
-      <div className="search-section glass-panel">
-        <form className="search-form" onSubmit={handleSearch}>
-          <div className="search-input-wrapper">
-            <MapPin size={20} className="input-icon" />
-            <input 
-              type="text" 
-              placeholder="Search by location or organ..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-          </div>
-          
-          <div className="filters-wrapper">
-            <div className="filter-group">
-              <Filter size={18} className="filter-icon" />
-              <select value={organFilter} onChange={(e) => setOrganFilter(e.target.value)}>
-                <option value="All">All Organs</option>
-                <option value="Kidney">Kidney</option>
-                <option value="Liver (Partial)">Liver</option>
-                <option value="Heart">Heart</option>
-                <option value="Lungs">Lungs</option>
-              </select>
-            </div>
-            
-            <div className="filter-group">
-              <Droplet size={18} className="filter-icon" />
-              <select value={bloodTypeFilter} onChange={(e) => setBloodTypeFilter(e.target.value)}>
-                <option value="All">All Blood Types</option>
-                <option value="A+">A+</option>
-                <option value="A-">A-</option>
-                <option value="B+">B+</option>
-                <option value="B-">B-</option>
-                <option value="O+">O+</option>
-                <option value="O-">O-</option>
-                <option value="AB+">AB+</option>
-                <option value="AB-">AB-</option>
-              </select>
-            </div>
-            
-            <button type="submit" className="btn btn-primary search-btn">
-              {isSearching ? 'Searching...' : 'Search Database'}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <div className="results-section">
-        <div className="results-header">
-          <h2>Available Matches <span className="badge">{isSearching ? 0 : filteredResults.length}</span></h2>
+      {/* Header */}
+      <div className="text-center max-w-xl mx-auto">
+        <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-50 rounded-2xl mb-4">
+          <Search size={26} className="text-blue-600" aria-hidden="true" />
         </div>
-        
-        {isSearching ? (
-          <div className="loading-state glass-panel">
-            <Activity size={40} className="spinner" />
-            <p>Scanning the registry...</p>
-          </div>
-        ) : filteredResults.length > 0 ? (
-          <div className="results-grid">
-            {filteredResults.map(result => (
-              <div key={result.id} className="result-card glass-panel">
-                <div className="card-header">
-                  <h3>{result.organ}</h3>
-                  <span className={`urgency-badge ${result.urgency.toLowerCase()}`}>
-                    {result.urgency} Priority
-                  </span>
-                </div>
-                <div className="card-body">
-                  <div className="info-row">
-                    <Droplet size={16} />
-                    <span>Blood Type: <strong>{result.bloodType}</strong></span>
-                  </div>
-                  <div className="info-row">
-                    <MapPin size={16} />
-                    <span>{result.location}</span>
-                  </div>
-                </div>
-                <div className="card-footer">
-                  <span className="date-added">Added: {result.dateAdded}</span>
-                  <button className="btn btn-outline btn-sm" onClick={() => setSelectedDetails(result)}>View Details</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-state glass-panel">
-            <Search size={40} className="empty-icon" />
-            <h3>No Exact Matches Found</h3>
-            <p>Try adjusting your filters or expanding your search criteria.</p>
-          </div>
-        )}
+        <h1 className="text-3xl font-bold text-slate-800">Organ & Tissue Finder</h1>
+        <p className="text-slate-500 mt-2 text-sm">
+          Search the national registry for compatible life-saving matches.
+        </p>
       </div>
 
-      {/* Modal Popup */}
-      {selectedDetails && (
-        <div className="modal-backdrop" onClick={() => setSelectedDetails(null)}>
-          <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
-            <h2>{selectedDetails.organ} Details</h2>
-            <div className="modal-body">
-              <p><strong>Blood Type:</strong> <span className="highlight-text">{selectedDetails.bloodType}</span></p>
-              <p><strong>Location:</strong> {selectedDetails.location}</p>
-              <p><strong>Urgency:</strong> <span className={`urgency-badge ${selectedDetails.urgency.toLowerCase()}`}>{selectedDetails.urgency}</span></p>
-              <p><strong>Date Added:</strong> {selectedDetails.dateAdded}</p>
-              <hr />
-              <p className="text-muted">This organ is currently available in the national registry. Authorized medical professionals may initiate a secure matching request pending verification.</p>
+      {/* Search bar */}
+      <SearchBar
+        value={filters.query}
+        onChange={(v) => updateFilter('query', v)}
+        placeholder="Search by organ, blood type, location…"
+        loading={loading}
+        size="lg"
+      />
+
+      {/* Active chips */}
+      <FilterChips
+        filters={filters}
+        updateFilter={updateFilter}
+        resetFilters={resetFilters}
+        activeCount={activeFilterCount}
+      />
+
+      {/* Layout */}
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
+
+        {/* Sidebar */}
+        <aside className="w-full lg:w-64 shrink-0">
+          <FilterPanel
+            filters={filters}
+            updateFilter={updateFilter}
+            resetFilters={resetFilters}
+            activeCount={activeFilterCount}
+            showEmergencyToggle={false}
+            showAvailability={false}
+            showSort
+            defaultOpen
+          />
+        </aside>
+
+        {/* Results */}
+        <div className="flex-1 min-w-0 space-y-4">
+          <ResultsHeader
+            label="Available Organs"
+            total={totalCounts.organs}
+            filtered={filteredCounts.organs}
+            sortBy={filters.sortBy}
+            onSortChange={(v) => updateFilter('sortBy', v)}
+            loading={loading}
+            onRefresh={refresh}
+          />
+
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
             </div>
-            <div className="modal-actions">
-              <button className="btn btn-primary" onClick={() => { alert('Match Request securely sent to regional coordinator.'); setSelectedDetails(null); }}>Initiate Match Request</button>
-              <button className="btn btn-outline" onClick={() => setSelectedDetails(null)}>Close</button>
+          ) : filteredOrgans.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredOrgans.map((organ) => (
+                <OrganCard
+                  key={organ.id}
+                  organ={organ}
+                  query={filters.query}
+                  onRequest={handleRequest}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
+              <SearchX size={40} className="opacity-40" aria-hidden="true" />
+              <div className="text-center">
+                <p className="text-sm font-semibold text-slate-500">No organs found</p>
+                <p className="text-xs mt-1">Try adjusting your filters or search terms.</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Detail modal */}
+      {selected && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+          onClick={() => setSelected(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${selected.organ} details`}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold text-slate-800 mb-4">{selected.organ} Details</h2>
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              {[
+                ['Blood Type', selected.bloodType],
+                ['Location',   selected.location],
+                ['Urgency',    selected.urgency],
+                ['Date Added', selected.dateAdded || selected.date_added || '—'],
+              ].map(([k, v]) => (
+                <div key={k} className="bg-slate-50 rounded-xl p-3">
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">{k}</p>
+                  <p className="text-sm font-semibold text-slate-700">{v}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-slate-400 mb-5 leading-relaxed">
+              This organ is available in the national registry. Authorized medical professionals
+              may initiate a secure matching request pending verification.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSelected(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => { alert('Match request sent to regional coordinator.'); setSelected(null); }}
+                className="flex-1 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold"
+              >
+                Initiate Match Request
+              </button>
             </div>
           </div>
         </div>

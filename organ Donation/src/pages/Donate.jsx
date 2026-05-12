@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { HeartHandshake, Shield, CheckCircle } from 'lucide-react';
-import { supabase } from '../supabaseClient';
+import { registerDonor } from '../services/donorService';
 import './Donate.css';
 
 const Donate = () => {
@@ -13,55 +13,22 @@ const Donate = () => {
     medicalHistory: '',
     consent: false
   });
-  
+
   const [submitted, setSubmitted] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // 1. Add the donor profile
-      const { error: donorError } = await supabase
-        .from('donors')
-        .insert([{
-          fullName:       formData.fullName,
-          email:          formData.email,
-          phone:          formData.phone,
-          bloodType:      formData.bloodType,
-          organType:      formData.organType,
-          medicalHistory: formData.medicalHistory,
-          consent:        formData.consent,
-          timestamp:      new Date().toISOString()
-        }]);
-
-      if (donorError) throw donorError;
-
-      // 2. Automatically list their offered organ in the public Find registry
-      if (formData.organType !== 'Any') {
-        const { error: organError } = await supabase
-          .from('organs')
-          .insert([{
-            organ:     formData.organType,
-            bloodType: formData.bloodType,
-            location:  'Registered Donor',
-            urgency:   'Voluntary',
-            dateAdded: new Date().toISOString().split('T')[0]
-          }]);
-          
-        if (organError) throw organError;
-      }
-
+      await registerDonor(formData);
       setSubmitted(true);
-    } catch (e) {
-      console.error("Error adding document: ", e);
-      alert("Warning: Cannot connect to Supabase. (Check console for exact permission/column error)");
+    } catch (err) {
+      console.error('Error registering donor:', err);
+      alert('Warning: Cannot connect to database. Check console for details.');
       setSubmitted(true);
     }
   };
@@ -94,13 +61,13 @@ const Donate = () => {
           <Shield size={16} />
           <span>HIPAA Compliant & Secure Encryption</span>
         </div>
-        
+
         <form className="donate-form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="fullName">Full Name</label>
             <input type="text" id="fullName" name="fullName" value={formData.fullName} onChange={handleChange} required placeholder="John Doe" />
           </div>
-          
+
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="email">Email Address</label>
@@ -117,14 +84,7 @@ const Donate = () => {
               <label htmlFor="bloodType">Blood Type</label>
               <select id="bloodType" name="bloodType" value={formData.bloodType} onChange={handleChange} required>
                 <option value="" disabled>Select Blood Type</option>
-                <option value="A+">A+</option>
-                <option value="A-">A-</option>
-                <option value="B+">B+</option>
-                <option value="B-">B-</option>
-                <option value="O+">O+</option>
-                <option value="O-">O-</option>
-                <option value="AB+">AB+</option>
-                <option value="AB-">AB-</option>
+                {['A+','A-','B+','B-','O+','O-','AB+','AB-'].map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div className="form-group">

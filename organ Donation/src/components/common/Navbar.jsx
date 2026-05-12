@@ -7,15 +7,13 @@ const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const location = useLocation();
 
-  const toggleMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
+  const toggleMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 
   const navLinks = [
-    { name: 'Home', path: '/' },
-    { name: 'Donate', path: '/donate' },
+    { name: 'Home',       path: '/' },
+    { name: 'Donate',     path: '/donate' },
     { name: 'Find Organ', path: '/find' },
-    { name: 'Dashboard', path: '/dashboard' },
+    { name: 'Dashboard',  path: '/dashboard' },
   ];
 
   return (
@@ -59,8 +57,8 @@ const Navbar = () => {
               {link.name}
             </Link>
           ))}
-          <Link 
-            to="/donate" 
+          <Link
+            to="/donate"
             className="btn btn-primary mobile-cta"
             onClick={() => setIsMobileMenuOpen(false)}
           >

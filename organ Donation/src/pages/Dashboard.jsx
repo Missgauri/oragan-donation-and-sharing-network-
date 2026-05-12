@@ -1,46 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Activity, Users, Clock, ShieldAlert, CheckCircle, ArrowRight } from 'lucide-react';
-import { supabase } from '../supabaseClient';
+import { useMatches } from '../hooks/useMatches';
 import './Dashboard.css';
 
-const MATCHES = [
-  { id: 101, patientRef: 'PT-4921', organ: 'Kidney', matchScore: 98, status: 'Transporting', eta: '2 hrs' },
-  { id: 102, patientRef: 'PT-3304', organ: 'Heart', matchScore: 92, status: 'Preparing Match', eta: 'N/A' },
-  { id: 103, patientRef: 'PT-8812', organ: 'Liver', matchScore: 85, status: 'Pending Review', eta: 'N/A' },
-];
-
 const Dashboard = () => {
-  const [matches, setMatches] = useState(MATCHES);
+  const { matches } = useMatches();
   const [selectedMatch, setSelectedMatch] = useState(null);
-
-  useEffect(() => {
-    // Initial fetch
-    const fetchMatches = async () => {
-      try {
-        const { data, error } = await supabase.from('matches').select('*');
-        if (data && data.length > 0) setMatches(data);
-      } catch (e) {
-        console.log("Supabase not configured for real-time matches yet. Using mock data.");
-      }
-    };
-    fetchMatches();
-
-    // Set up realtime subscription
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, (payload) => {
-        setMatches(current => {
-          return [payload.new, ...current.filter(m => m.id !== payload.old?.id && m.id !== payload.new?.id)];
-        });
-      })
-      .subscribe((status, err) => {
-         if(err) console.log("Supabase subscription error:", err);
-      });
-    
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
 
   return (
     <div className="dashboard-page container">
@@ -52,23 +17,17 @@ const Dashboard = () => {
 
       <div className="stats-grid">
         <div className="stat-card glass-panel text-center">
-          <div className="stat-icon-wrapper bg-blue">
-            <Users size={28} />
-          </div>
+          <div className="stat-icon-wrapper bg-blue"><Users size={28} /></div>
           <h3 className="stat-value">5,204</h3>
           <p className="stat-label">Active Waitlist</p>
         </div>
         <div className="stat-card glass-panel text-center">
-          <div className="stat-icon-wrapper bg-green">
-            <CheckCircle size={28} />
-          </div>
+          <div className="stat-icon-wrapper bg-green"><CheckCircle size={28} /></div>
           <h3 className="stat-value">142</h3>
           <p className="stat-label">Successful Transplants (Month)</p>
         </div>
         <div className="stat-card glass-panel text-center">
-          <div className="stat-icon-wrapper bg-red">
-            <Clock size={28} />
-          </div>
+          <div className="stat-icon-wrapper bg-red"><Clock size={28} /></div>
           <h3 className="stat-value">24m</h3>
           <p className="stat-label">Avg. Match Time (Critical)</p>
         </div>
@@ -82,7 +41,7 @@ const Dashboard = () => {
             Live Updates
           </span>
         </div>
-        
+
         <div className="table-responsive">
           <table className="matches-table">
             <thead>
@@ -135,7 +94,6 @@ const Dashboard = () => {
         <button className="btn btn-primary btn-sm">Review Policy</button>
       </div>
 
-      {/* Modal Popup */}
       {selectedMatch && (
         <div className="modal-backdrop" onClick={() => setSelectedMatch(null)}>
           <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>

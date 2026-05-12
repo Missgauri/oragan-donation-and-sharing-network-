@@ -13,7 +13,7 @@ const Footer = () => {
             <span>LifeGift Network</span>
           </div>
           <p className="footer-description">
-            Connecting generous organ donors with patients in critical need. 
+            Connecting generous organ donors with patients in critical need.
             Every donation has the power to save up to 8 lives.
           </p>
         </div>
@@ -41,18 +41,9 @@ const Footer = () => {
         <div className="footer-section">
           <h3 className="footer-title">Emergency Contact</h3>
           <ul className="footer-contact">
-            <li>
-              <Phone size={18} />
-              <span>1800-11-4770 (National Helpline)</span>
-            </li>
-            <li>
-              <Mail size={18} />
-              <span>support@lifegiftnetwork.in</span>
-            </li>
-            <li>
-              <MapPin size={18} />
-              <span>National Transplant Center, New Delhi</span>
-            </li>
+            <li><Phone size={18} /><span>1800-11-4770 (National Helpline)</span></li>
+            <li><Mail size={18} /><span>support@lifegiftnetwork.in</span></li>
+            <li><MapPin size={18} /><span>National Transplant Center, New Delhi</span></li>
           </ul>
         </div>
       </div>
