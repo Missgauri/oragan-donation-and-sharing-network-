@@ -1,12 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { realtimeManager } from '../lib/realtimeManager';
 
 const AuthContext = createContext(null);
 
-/**
- * Roles supported by the platform.
- * Each user has one role stored in their profile metadata.
- */
 export const ROLES = {
   DONOR:    'donor',
   RECEIVER: 'receiver',
@@ -15,11 +12,10 @@ export const ROLES = {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser]       = useState(null);   // Supabase auth user
-  const [role, setRole]       = useState(null);   // donor | receiver | hospital | admin
+  const [user,    setUser]    = useState(null);
+  const [role,    setRole]    = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Restore session on mount and listen for auth changes
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -52,7 +48,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    // Clean up all realtime subscriptions before signing out
+    realtimeManager.removeAll();
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
     setUser(null);
     setRole(null);
   };
@@ -64,4 +63,8 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
+  return ctx;
+};

@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
-import { Activity, Users, Clock, ShieldAlert, CheckCircle, ArrowRight } from 'lucide-react';
+import { Activity, Users, Clock, ShieldAlert, CheckCircle, ArrowRight, Loader2 } from 'lucide-react';
 import { useMatches } from '../hooks/useMatches';
 import './Dashboard.css';
 
 const Dashboard = () => {
-  const { matches } = useMatches();
+  const { matches, loading, error } = useMatches();
   const [selectedMatch, setSelectedMatch] = useState(null);
+
+  // Safe status class — guards against null/undefined status
+  const statusClass = (status) =>
+    status ? status.replace(/\s+/g, '-').toLowerCase() : 'unknown';
 
   return (
     <div className="dashboard-page container">
@@ -37,52 +41,92 @@ const Dashboard = () => {
         <div className="main-header">
           <h2>Active Matches in Progress</h2>
           <span className="live-indicator">
-            <span className="live-dot"></span>
+            <span className="live-dot" />
             Live Updates
           </span>
         </div>
 
-        <div className="table-responsive">
-          <table className="matches-table">
-            <thead>
-              <tr>
-                <th>Match ID</th>
-                <th>Patient Ref</th>
-                <th>Organ</th>
-                <th>Compatibility Score</th>
-                <th>Status</th>
-                <th>ETA</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {matches.map((match) => (
-                <tr key={match.id}>
-                  <td><strong>#{match.id}</strong></td>
-                  <td>{match.patientRef}</td>
-                  <td>{match.organ}</td>
-                  <td>
-                    <div className="score-bar-wrapper">
-                      <div className="score-bar" style={{ width: `${match.matchScore}%`, backgroundColor: match.matchScore > 90 ? 'var(--color-secondary)' : 'var(--color-primary)' }}></div>
-                      <span>{match.matchScore}%</span>
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`status-badge ${match.status.replace(' ', '-').toLowerCase()}`}>
-                      {match.status}
-                    </span>
-                  </td>
-                  <td>{match.eta}</td>
-                  <td>
-                    <button className="btn btn-outline btn-sm action-btn" onClick={() => setSelectedMatch(match)}>
-                      View <ArrowRight size={14} />
-                    </button>
-                  </td>
+        {/* Loading state */}
+        {loading && (
+          <div className="flex items-center justify-center py-12 gap-3 text-slate-400">
+            <Loader2 size={20} className="animate-spin" />
+            <span className="text-sm">Loading matches…</span>
+          </div>
+        )}
+
+        {/* Error state */}
+        {!loading && error && (
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-xl px-5 py-4 mx-4 mb-4">
+            <ShieldAlert size={16} className="text-amber-500 shrink-0" />
+            <p className="text-sm text-amber-700">
+              Could not load live matches. Showing cached data.
+            </p>
+          </div>
+        )}
+
+        {/* Table */}
+        {!loading && (
+          <div className="table-responsive">
+            <table className="matches-table">
+              <thead>
+                <tr>
+                  <th>Match ID</th>
+                  <th>Patient Ref</th>
+                  <th>Organ</th>
+                  <th>Compatibility Score</th>
+                  <th>Status</th>
+                  <th>ETA</th>
+                  <th>Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {matches.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-8 text-slate-400 text-sm">
+                      No active matches found.
+                    </td>
+                  </tr>
+                ) : (
+                  matches.map((match) => (
+                    <tr key={match.id}>
+                      <td><strong>#{match.id}</strong></td>
+                      <td>{match.patientRef ?? '—'}</td>
+                      <td>{match.organ ?? '—'}</td>
+                      <td>
+                        <div className="score-bar-wrapper">
+                          <div
+                            className="score-bar"
+                            style={{
+                              width: `${match.matchScore ?? 0}%`,
+                              backgroundColor: (match.matchScore ?? 0) > 90
+                                ? 'var(--color-secondary)'
+                                : 'var(--color-primary)',
+                            }}
+                          />
+                          <span>{match.matchScore ?? 0}%</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`status-badge ${statusClass(match.status)}`}>
+                          {match.status ?? 'Unknown'}
+                        </span>
+                      </td>
+                      <td>{match.eta ?? 'N/A'}</td>
+                      <td>
+                        <button
+                          className="btn btn-outline btn-sm action-btn"
+                          onClick={() => setSelectedMatch(match)}
+                        >
+                          View <ArrowRight size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="alert-section glass-panel">
@@ -99,16 +143,20 @@ const Dashboard = () => {
           <div className="modal-content glass-panel" onClick={e => e.stopPropagation()}>
             <h2>Match #{selectedMatch.id} Logs</h2>
             <div className="modal-body">
-              <p><strong>Patient Ref:</strong> {selectedMatch.patientRef}</p>
-              <p><strong>Organ Needed:</strong> {selectedMatch.organ}</p>
-              <p><strong>Compatibility Score:</strong> <span className="highlight-text">{selectedMatch.matchScore}%</span></p>
-              <p><strong>Current Status:</strong> <span className={`status-badge ${selectedMatch.status.replace(' ', '-').toLowerCase()}`}>{selectedMatch.status}</span></p>
-              <p><strong>ETA:</strong> {selectedMatch.eta}</p>
+              <p><strong>Patient Ref:</strong> {selectedMatch.patientRef ?? '—'}</p>
+              <p><strong>Organ Needed:</strong> {selectedMatch.organ ?? '—'}</p>
+              <p><strong>Compatibility Score:</strong> <span className="highlight-text">{selectedMatch.matchScore ?? 0}%</span></p>
+              <p><strong>Current Status:</strong>{' '}
+                <span className={`status-badge ${statusClass(selectedMatch.status)}`}>
+                  {selectedMatch.status ?? 'Unknown'}
+                </span>
+              </p>
+              <p><strong>ETA:</strong> {selectedMatch.eta ?? 'N/A'}</p>
               <hr />
               <p className="text-muted">Full logistical tracking and patient histories are securely locked to authorized transplant coordinators in accordance with HIPAA data privacy guidelines.</p>
             </div>
             <div className="modal-actions">
-              <button className="btn btn-primary" onClick={() => { alert('Opening full secure transport logs...'); setSelectedMatch(null); }}>View Transport Logs</button>
+              <button className="btn btn-primary" onClick={() => { setSelectedMatch(null); }}>View Transport Logs</button>
               <button className="btn btn-outline" onClick={() => setSelectedMatch(null)}>Close</button>
             </div>
           </div>
