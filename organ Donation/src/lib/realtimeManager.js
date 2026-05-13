@@ -26,9 +26,11 @@ class RealtimeManager {
     /** @type {Map<string, { channel: any, refCount: number, builders: Set<Function> }>} */
     this._registry = new Map();
 
-    // Reconnect all active channels when the tab regains focus
+    // Reconnect all active channels when the tab regains focus.
+    // Bind once so we can remove the exact same reference later.
+    this._boundHandleVisibility = this._handleVisibility.bind(this);
     if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', this._handleVisibility);
+      document.addEventListener('visibilitychange', this._boundHandleVisibility);
     }
   }
 
@@ -88,16 +90,13 @@ class RealtimeManager {
 
   /**
    * Reconnect all channels when the tab becomes visible.
-   * Supabase channels auto-reconnect, but this forces a fresh subscribe
-   * for any that ended up in CLOSED/ERROR state.
    */
-  _handleVisibility = () => {
+  _handleVisibility() {
     if (document.visibilityState !== 'visible') return;
 
     for (const [name, entry] of this._registry.entries()) {
       const state = entry.channel.state;
       if (state === 'closed' || state === 'errored') {
-        console.info(`[Realtime] Reconnecting channel: ${name}`);
         // Rebuild the channel from scratch
         entry.channel.unsubscribe();
         const newChannel = supabase.channel(name);
@@ -108,7 +107,7 @@ class RealtimeManager {
         entry.channel = newChannel;
       }
     }
-  };
+  }
 
   /**
    * Remove all channels — useful for testing or full logout cleanup.
@@ -118,6 +117,10 @@ class RealtimeManager {
       entry.channel.unsubscribe();
     }
     this._registry.clear();
+    // Also remove the visibility listener
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this._boundHandleVisibility);
+    }
   }
 
   /** Expose registry size for debugging */

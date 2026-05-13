@@ -3,25 +3,18 @@ import { Link } from 'react-router-dom';
 import { HeartPulse, Home } from 'lucide-react';
 import { ROUTES } from '../routes/routeConfig';
 
-const NotFound = () => {
-  return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      background: 'linear-gradient(135deg, var(--color-bg-light) 0%, rgba(0,86,179,0.05) 100%)',
-      textAlign: 'center', padding: '2rem'
-    }}>
-      <HeartPulse size={80} style={{ color: 'var(--color-accent)', marginBottom: '1.5rem' }} />
-      <h1 style={{ fontSize: '6rem', fontWeight: '800', color: 'var(--color-primary-dark)', lineHeight: 1 }}>404</h1>
-      <h2 style={{ fontSize: '1.75rem', fontWeight: '600', margin: '1rem 0 0.5rem' }}>Page Not Found</h2>
-      <p style={{ color: 'var(--color-text-muted)', maxWidth: '400px', marginBottom: '2rem' }}>
-        The page you're looking for doesn't exist or has been moved.
-      </p>
-      <Link to={ROUTES.HOME} className="btn btn-primary" style={{ gap: '0.5rem' }}>
-        <Home size={18} /> Back to Home
-      </Link>
-    </div>
-  );
-};
+const NotFound = () => (
+  <div className="min-h-screen flex flex-col items-center justify-center text-center px-6 bg-slate-50">
+    <HeartPulse size={72} className="text-red-500 mb-6" />
+    <h1 className="text-8xl font-extrabold text-blue-900 leading-none mb-2">404</h1>
+    <h2 className="text-2xl font-bold text-slate-800 mb-3">Page Not Found</h2>
+    <p className="text-slate-500 max-w-sm mb-8 leading-relaxed">
+      The page you're looking for doesn't exist or has been moved.
+    </p>
+    <Link to={ROUTES.HOME} className="btn btn-primary">
+      <Home size={18} /> Back to Home
+    </Link>
+  </div>
+);
 
 export default NotFound;

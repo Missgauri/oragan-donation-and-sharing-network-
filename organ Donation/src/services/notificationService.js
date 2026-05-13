@@ -23,7 +23,13 @@ export async function fetchNotifications() {
     .order('created_at', { ascending: false })
     .limit(50);
 
-  if (error) throw error;
+  if (error) {
+    // Table may not exist yet
+    if (error.code === '42P01' || error.message?.includes('does not exist') || error.message?.includes('schema cache')) {
+      return [];
+    }
+    throw error;
+  }
   return data || [];
 }
 
@@ -45,9 +51,14 @@ export async function markAsRead(id) {
  * Mark all notifications for the current user as read.
  */
 export async function markAllAsRead() {
+  // Get current user id to scope the update correctly
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
   const { error } = await supabase
     .from('notifications')
     .update({ is_read: true })
+    .eq('user_id', user.id)
     .eq('is_read', false);
 
   if (error) throw error;

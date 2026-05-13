@@ -12,7 +12,7 @@ import { formatDate } from '../utils/formatDate';
 const ROLE_CONFIG = {
   donor:    { label: 'Donor',    bg: 'bg-blue-50',    text: 'text-blue-700',    border: 'border-blue-200'    },
   receiver: { label: 'Receiver', bg: 'bg-purple-50',  text: 'text-purple-700',  border: 'border-purple-200'  },
-  hospital: { label: 'Hospital', bg: 'bg-indigo-50',  text: 'text-indigo-700',  border: 'border-indigo-200'  },
+  hospital: { label: 'Hospital', bg: 'bg-blue-50',    text: 'text-blue-700',    border: 'border-blue-200'    },
   admin:    { label: 'Admin',    bg: 'bg-slate-100',  text: 'text-slate-700',   border: 'border-slate-200'   },
 };
 

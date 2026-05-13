@@ -12,9 +12,9 @@ import {
   markAsRead,
   markAllAsRead,
   deleteNotification,
-  subscribeToNotifications,
   NOTIFICATION_TYPES,
 } from '../services/notificationService';
+import { useRealtimeTable } from '../hooks/useRealtimeTable';
 
 const NotificationContext = createContext(null);
 
@@ -63,25 +63,31 @@ export const NotificationProvider = ({ children }) => {
     setLoading(true);
     fetchNotifications()
       .then((data) => setNotifications(data))
-      .catch(console.error)
+      .catch((err) => {
+        // notifications table may not exist yet — fail silently
+        console.warn('[NotificationContext] fetchNotifications failed:', err?.message);
+        setNotifications([]);
+      })
       .finally(() => setLoading(false));
   }, [user]);
 
-  // ── Realtime subscription ────────────────────────────────────────────────
-  useEffect(() => {
-    if (!user) return;
-
-    const channel = subscribeToNotifications(user.id, (newNotification) => {
-      // Prepend to list
-      setNotificationsRef.current((prev) => [newNotification, ...prev]);
-      // Show toast
-      addToast(newNotification);
+  // ── Realtime subscription — only if notifications table exists ────────────
+  const handleNewRef = useRef(null);
+  handleNewRef.current = useCallback((newNotification) => {
+    setNotificationsRef.current((prev) => {
+      if (prev.some((n) => n.id === newNotification.id)) return prev;
+      return [newNotification, ...prev];
     });
+    addToast(newNotification);
+  }, [addToast]);
 
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [user, addToast]);
+  useRealtimeTable({
+    table:    'notifications',
+    event:    'INSERT',
+    filter:   user ? `user_id=eq.${user.id}` : undefined,
+    enabled:  Boolean(user),
+    onInsert: (row) => handleNewRef.current?.(row),
+  });
 
   // ── Actions ──────────────────────────────────────────────────────────────
   const handleMarkAsRead = useCallback(async (id) => {

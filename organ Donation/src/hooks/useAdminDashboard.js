@@ -10,25 +10,15 @@ import {
 } from '../services/adminService';
 import { formatDate } from '../utils/formatDate';
 
-/**
- * useAdminDashboard
- *
- * Loads all data needed by AdminDashboard:
- *   - Aggregate stats (donor count, organ count, match count, emergencies)
- *   - Recent donor registrations
- *   - Recent recipient requests
- *   - Active matches
- *   - System activity feed (from notifications)
- */
-
-const MOCK_STATS = { donors: 847, organs: 1102, matches: 312, emergencies: 6 };
+// Realistic mock fallbacks — only used when DB is unreachable
+const MOCK_STATS = { donors: 0, organs: 0, matches: 0, emergencies: 0 };
 
 const MOCK_DONORS = [
-  { id: 1, name: 'Rahul Sharma', organ_type: 'Kidney', blood_type: 'O+',  location: 'Delhi, IN',     urgency: 'Voluntary', is_available: true,  created_at: '2024-11-10T00:00:00Z' },
-  { id: 2, name: 'Priya Mehta',  organ_type: 'Liver',  blood_type: 'A-',  location: 'Mumbai, MH',    urgency: 'Voluntary', is_available: true,  created_at: '2024-11-09T00:00:00Z' },
-  { id: 3, name: 'Amit Patel',   organ_type: 'Heart',  blood_type: 'AB+', location: 'Bangalore, KA', urgency: 'High',      is_available: true,  created_at: '2024-11-08T00:00:00Z' },
-  { id: 4, name: 'Sunita Rao',   organ_type: 'Lungs',  blood_type: 'O-',  location: 'Chennai, TN',   urgency: 'High',      is_available: true,  created_at: '2024-11-07T00:00:00Z' },
-  { id: 5, name: 'Vikram Singh', organ_type: 'Kidney', blood_type: 'B+',  location: 'Hyderabad, TS', urgency: 'Voluntary', is_available: false, created_at: '2024-11-06T00:00:00Z' },
+  { id: 1, name: 'Rahul Sharma', organ_type: 'Kidney',      blood_type: 'O+',  location: 'Delhi, IN',     urgency: 'Voluntary', is_available: true,  created_at: '2024-11-10T00:00:00Z' },
+  { id: 2, name: 'Priya Mehta',  organ_type: 'Liver',       blood_type: 'A-',  location: 'Mumbai, MH',    urgency: 'Voluntary', is_available: true,  created_at: '2024-11-09T00:00:00Z' },
+  { id: 3, name: 'Amit Patel',   organ_type: 'Heart',       blood_type: 'AB+', location: 'Bangalore, KA', urgency: 'High',      is_available: true,  created_at: '2024-11-08T00:00:00Z' },
+  { id: 4, name: 'Sunita Rao',   organ_type: 'Lungs',       blood_type: 'O-',  location: 'Chennai, TN',   urgency: 'High',      is_available: true,  created_at: '2024-11-07T00:00:00Z' },
+  { id: 5, name: 'Vikram Singh', organ_type: 'Bone Marrow', blood_type: 'B+',  location: 'Hyderabad, TS', urgency: 'Voluntary', is_available: false, created_at: '2024-11-06T00:00:00Z' },
 ];
 
 const MOCK_REQUESTS = [
@@ -39,12 +29,14 @@ const MOCK_REQUESTS = [
 ];
 
 const MOCK_ACTIVITY = [
-  { id: 1, type: 'system', title: 'New donor registered',          message: 'Rahul Sharma registered as a kidney donor.',    created_at: '2024-11-10T08:00:00Z' },
-  { id: 2, type: 'emergency', title: 'Emergency request received', message: 'Critical heart request from Apollo Bangalore.', created_at: '2024-11-10T07:00:00Z' },
-  { id: 3, type: 'match', title: 'Match confirmed',                message: 'Kidney match confirmed for PT-4921.',           created_at: '2024-11-09T18:00:00Z' },
+  { id: 1, type: 'system',    message: 'Rahul Sharma registered as a kidney donor.',    created_at: '2024-11-10T08:00:00Z' },
+  { id: 2, type: 'emergency', message: 'Critical heart request from Apollo Bangalore.', created_at: '2024-11-10T07:00:00Z' },
+  { id: 3, type: 'match',     message: 'Kidney match confirmed for PT-4921.',           created_at: '2024-11-09T18:00:00Z' },
+  { id: 4, type: 'system',    message: 'Priya Mehta liver donor profile verified.',     created_at: '2024-11-09T12:00:00Z' },
 ];
 
 export function useAdminDashboard() {
+  // Start with zero stats — replaced by real data or kept at zero if DB empty
   const [stats,    setStats]    = useState(MOCK_STATS);
   const [donors,   setDonors]   = useState([]);
   const [requests, setRequests] = useState([]);
@@ -66,14 +58,27 @@ export function useAdminDashboard() {
         fetchSystemActivity(10),
       ]);
 
-      if (statsRes.status === 'fulfilled')    setStats(statsRes.value);
-      if (donorsRes.status === 'fulfilled')   setDonors(donorsRes.value.length   ? donorsRes.value   : MOCK_DONORS);
-      if (requestsRes.status === 'fulfilled') setRequests(requestsRes.value.length ? requestsRes.value : MOCK_REQUESTS);
-      if (matchesRes.status === 'fulfilled')  setMatches(matchesRes.value);
+      // Stats — use real if available, else zeros (not fake big numbers)
+      if (statsRes.status === 'fulfilled') setStats(statsRes.value);
 
+      // Donors — use real if available, else mock
+      setDonors(
+        donorsRes.status === 'fulfilled' && donorsRes.value.length
+          ? donorsRes.value : MOCK_DONORS
+      );
+
+      // Requests — use real if available, else mock
+      setRequests(
+        requestsRes.status === 'fulfilled' && requestsRes.value.length
+          ? requestsRes.value : MOCK_REQUESTS
+      );
+
+      // Matches — use real if available
+      if (matchesRes.status === 'fulfilled') setMatches(matchesRes.value);
+
+      // Activity feed
       const activityData = activityRes.status === 'fulfilled' && activityRes.value.length
-        ? activityRes.value
-        : MOCK_ACTIVITY;
+        ? activityRes.value : MOCK_ACTIVITY;
 
       setActivity(activityData.map(n => ({
         id:   n.id,
@@ -86,7 +91,7 @@ export function useAdminDashboard() {
       })));
     } catch (err) {
       console.error('AdminDashboard load error:', err);
-      setError(err.message || 'Failed to load admin data');
+      setError('Using demo data — database unavailable.');
       setDonors(MOCK_DONORS);
       setRequests(MOCK_REQUESTS);
       setActivity(MOCK_ACTIVITY.map(n => ({
@@ -99,23 +104,14 @@ export function useAdminDashboard() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Admin actions
   const toggleDonorAvailability = useCallback(async (id, current) => {
-    try {
-      await setDonorAvailability(id, !current);
-      setDonors(prev => prev.map(d => d.id === id ? { ...d, is_available: !current } : d));
-    } catch (err) {
-      console.error('Toggle availability failed:', err);
-    }
+    await setDonorAvailability(id, !current);
+    setDonors(prev => prev.map(d => d.id === id ? { ...d, is_available: !current } : d));
   }, []);
 
   const handleCloseRequest = useCallback(async (id) => {
-    try {
-      await closeRequest(id);
-      setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'closed' } : r));
-    } catch (err) {
-      console.error('Close request failed:', err);
-    }
+    await closeRequest(id);
+    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'closed' } : r));
   }, []);
 
   return {

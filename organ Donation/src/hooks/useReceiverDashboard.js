@@ -6,24 +6,22 @@ import { findMatches } from '../utils/matchingEngine';
 import { useNotifications } from '../context/NotificationContext';
 import { formatDate } from '../utils/formatDate';
 
-/**
- * useReceiverDashboard
- *
- * Loads all data needed by ReceiverDashboard:
- *   - Recipient's active requests
- *   - Compatible donor matches (via matching engine)
- *   - Notification-based activity feed
- */
-
 const MOCK_REQUEST = {
   id: 'r1', organ_needed: 'Kidney', blood_type: 'O+',
   urgency: 'High', hospital_name: 'AIIMS Delhi', status: 'active',
 };
 
 const MOCK_DONORS = [
-  { id: 'd1', name: 'Rahul Sharma', organType: 'Kidney', bloodType: 'O+', location: 'Delhi, IN',   urgency: 'Voluntary', isAvailable: true },
-  { id: 'd6', name: 'Ananya Iyer',  organType: 'Kidney', bloodType: 'O-', location: 'Pune, MH',    urgency: 'Voluntary', isAvailable: true },
-  { id: 'd8', name: 'Kavya Reddy',  organType: 'Kidney', bloodType: 'A+', location: 'Vizag, AP',   urgency: 'Voluntary', isAvailable: true },
+  { id: 'd1', name: 'Rahul Sharma', organType: 'Kidney', bloodType: 'O+', location: 'Delhi, IN',     urgency: 'Voluntary', isAvailable: true },
+  { id: 'd6', name: 'Ananya Iyer',  organType: 'Kidney', bloodType: 'O-', location: 'Pune, MH',      urgency: 'Voluntary', isAvailable: true },
+  { id: 'd8', name: 'Kavya Reddy',  organType: 'Kidney', bloodType: 'A+', location: 'Vizag, AP',     urgency: 'Voluntary', isAvailable: true },
+  { id: 'd9', name: 'Mohan Das',    organType: 'Kidney', bloodType: 'O+', location: 'Kolkata, WB',   urgency: 'High',      isAvailable: true },
+];
+
+const MOCK_ACTIVITY = [
+  { id: 1, text: 'Your organ request is being reviewed by coordinators.',       time: '1 hr ago',   dot: 'bg-blue-400'    },
+  { id: 2, text: '3 compatible donors found in your region.',                   time: '3 hrs ago',  dot: 'bg-emerald-400' },
+  { id: 3, text: 'Emergency request escalated to regional transplant center.',  time: '1 day ago',  dot: 'bg-red-400'     },
 ];
 
 export function useReceiverDashboard() {
@@ -36,7 +34,7 @@ export function useReceiverDashboard() {
   const [error,    setError]    = useState(null);
 
   const load = useCallback(async () => {
-    if (!user) return;
+    if (!user) { setLoading(false); return; }
     setLoading(true);
     setError(null);
 
@@ -63,7 +61,7 @@ export function useReceiverDashboard() {
       setDonors(liveDonors);
     } catch (err) {
       console.error('ReceiverDashboard load error:', err);
-      setError(err.message || 'Failed to load dashboard data');
+      setError('Using demo data — database unavailable.');
       setRequests([MOCK_REQUEST]);
       setDonors(MOCK_DONORS);
     } finally {
@@ -73,39 +71,38 @@ export function useReceiverDashboard() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Run matching engine for the primary active request
   const compatibleMatches = useMemo(() => {
     const activeReq = requests.find(r => r.status === 'active') || requests[0];
     if (!activeReq || !donors.length) return [];
-
     const recipient = {
       id:          activeReq.id,
       organNeeded: activeReq.organ_needed || activeReq.organNeeded,
       bloodType:   activeReq.blood_type   || activeReq.bloodType,
       urgency:     activeReq.urgency,
     };
-
     return findMatches(donors, recipient).slice(0, 5);
   }, [requests, donors]);
 
   const activeRequest = requests.find(r => r.status === 'active') || requests[0];
 
   const stats = {
-    matchStatus:       compatibleMatches.length > 0 ? 'Matches Found' : 'Searching',
-    compatibleDonors:  compatibleMatches.length,
-    requestsSent:      requests.length,
-    urgency:           activeRequest?.urgency || 'N/A',
+    matchStatus:      compatibleMatches.length > 0 ? 'Matches Found' : 'Searching',
+    compatibleDonors: compatibleMatches.length,
+    requestsSent:     requests.length,
+    urgency:          activeRequest?.urgency || 'N/A',
   };
 
-  const activity = notifications.slice(0, 5).map(n => ({
-    id:   n.id,
-    text: n.message,
-    time: formatDate(n.created_at),
-    dot:  n.type === 'match'            ? 'bg-emerald-400'
-        : n.type === 'request_accepted' ? 'bg-blue-400'
-        : n.type === 'emergency'        ? 'bg-red-400'
-        : 'bg-slate-400',
-  }));
+  const activity = notifications.length > 0
+    ? notifications.slice(0, 5).map(n => ({
+        id:   n.id,
+        text: n.message || n.title,
+        time: formatDate(n.created_at),
+        dot:  n.type === 'match'            ? 'bg-emerald-400'
+            : n.type === 'request_accepted' ? 'bg-blue-400'
+            : n.type === 'emergency'        ? 'bg-red-400'
+            : 'bg-slate-400',
+      }))
+    : MOCK_ACTIVITY;
 
   return {
     requests, donors, compatibleMatches,

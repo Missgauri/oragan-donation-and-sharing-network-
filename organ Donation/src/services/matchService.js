@@ -32,8 +32,7 @@ export function subscribeToMatches(onChange) {
 
 /**
  * Fetch all donor profiles available for matching.
- * Falls back gracefully if the table doesn't exist yet.
- * @returns {Promise<Array>}
+ * Normalises snake_case DB fields to camelCase for the matching engine.
  */
 export async function fetchDonorProfiles() {
   const { data, error } = await supabase
@@ -43,11 +42,20 @@ export async function fetchDonorProfiles() {
     .order('created_at', { ascending: false });
 
   if (error) {
-    // Table may not exist yet — return empty so mock data takes over
-    console.warn('donor_profiles fetch failed (table may not exist):', error.message);
+    console.warn('donor_profiles fetch failed:', error.message);
     return [];
   }
-  return data || [];
+
+  // Normalise to camelCase so matching engine works with both DB and mock data
+  return (data || []).map(d => ({
+    ...d,
+    organType:   d.organ_type   || d.organType   || '',
+    bloodType:   d.blood_type   || d.bloodType   || '',
+    isAvailable: d.is_available ?? true,
+    name:        d.name         || d.full_name   || 'Anonymous',
+    location:    d.location     || '—',
+    urgency:     d.urgency      || 'Voluntary',
+  }));
 }
 
 /**

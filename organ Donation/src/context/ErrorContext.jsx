@@ -1,23 +1,19 @@
 /**
- * ErrorContext
+ * ErrorContext — Global error toast queue
  *
- * Global error toast queue — completely separate from the notification
- * system so that API/network errors are always visible regardless of
- * whether the user is logged in.
+ * Completely separate from the notification system so API/network
+ * errors are always visible regardless of login state.
  *
  * Usage anywhere in the app:
- *   const { showError, showSuccess, showWarning, showInfo } = useError();
+ *   const { showError, showSuccess, showWarning } = useError();
  *   showError('Something went wrong');
- *   showSuccess('Saved!');
+ *   showSuccess('Saved successfully!');
+ *
+ *   // Parse a raw Supabase / fetch error automatically:
+ *   handleApiError(err);
  */
 
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useId,
-} from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 
 const ErrorContext = createContext(null);
 
@@ -29,10 +25,25 @@ export const TOAST_TYPES = {
 };
 
 const DEFAULT_DURATIONS = {
-  error:   8000,
-  success: 4000,
-  warning: 6000,
-  info:    5000,
+  error:   7000,
+  success: 3500,
+  warning: 5000,
+  info:    4500,
+};
+
+// ── Supabase / fetch error code → friendly message ────────────────────────────
+const FRIENDLY_ERRORS = {
+  invalid_credentials:        'Incorrect email or password.',
+  email_not_confirmed:        'Please verify your email before signing in.',
+  user_already_exists:        'An account with this email already exists.',
+  weak_password:              'Password is too weak. Use at least 8 characters.',
+  over_request_rate_limit:    'Too many requests. Please wait a moment and try again.',
+  PGRST116:                   'Record not found.',
+  '23505':                    'This record already exists.',
+  '23503':                    'A required related record is missing.',
+  '42501':                    'You do not have permission to do that.',
+  'JWT expired':              'Your session has expired. Please sign in again.',
+  'PGRST301':                 'Session expired. Please sign in again.',
 };
 
 export const ErrorProvider = ({ children }) => {
@@ -47,21 +58,20 @@ export const ErrorProvider = ({ children }) => {
 
     const id       = `err-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const duration = options.duration ?? DEFAULT_DURATIONS[type] ?? 5000;
-    const title    = options.title ?? null;
-    const action   = options.action ?? null; // { label, onClick }
+    const title    = options.title   ?? null;
+    const action   = options.action  ?? null; // { label, onClick }
 
     setToasts((prev) => {
-      // Deduplicate — don't show the same message twice in a row
-      if (prev.length > 0 && prev[prev.length - 1].message === message) return prev;
-      // Cap at 5 toasts
-      const capped = prev.length >= 5 ? prev.slice(1) : prev;
+      // Deduplicate — don't stack the same message twice
+      if (prev.some((t) => t.message === message)) return prev;
+      // Cap at 4 visible toasts
+      const capped = prev.length >= 4 ? prev.slice(1) : prev;
       return [...capped, { id, type, message, title, action, duration }];
     });
 
     if (duration > 0) {
       setTimeout(() => dismiss(id), duration);
     }
-
     return id;
   }, [dismiss]);
 
@@ -71,49 +81,35 @@ export const ErrorProvider = ({ children }) => {
   const showInfo    = useCallback((msg, opts) => push(TOAST_TYPES.INFO,    msg, opts), [push]);
 
   /**
-   * Parse a Supabase or generic error and show an appropriate toast.
-   * Handles common Supabase error codes with user-friendly messages.
+   * Parse any Supabase or network error and show a friendly toast.
+   * @param {Error|Object} err
+   * @param {string}       fallback - shown if no friendly message found
    */
-  const handleApiError = useCallback((err, fallbackMessage = 'Something went wrong') => {
+  const handleApiError = useCallback((err, fallback = 'Something went wrong. Please try again.') => {
     if (!err) return;
 
-    const code    = err?.code || err?.error_code || '';
-    const message = err?.message || err?.error_description || '';
-
-    // Map known Supabase error codes to friendly messages
-    const friendly = {
-      'invalid_credentials':          'Incorrect email or password.',
-      'email_not_confirmed':          'Please verify your email before signing in.',
-      'user_already_exists':          'An account with this email already exists.',
-      'weak_password':                'Password is too weak. Use at least 8 characters with a number.',
-      'over_request_rate_limit':      'Too many requests. Please wait a moment and try again.',
-      'PGRST116':                     'Record not found.',
-      '23505':                        'This record already exists.',
-      '23503':                        'Cannot complete — a related record is missing.',
-      '42501':                        'You do not have permission to perform this action.',
-      'PGRST301':                     'Session expired. Please sign in again.',
-      'JWT expired':                  'Your session has expired. Please sign in again.',
-    }[code] || null;
-
-    // Network / offline
-    if (!navigator.onLine || message.toLowerCase().includes('fetch')) {
+    // Offline check
+    if (!navigator.onLine) {
       showError('No internet connection. Please check your network.', { title: 'Offline' });
       return;
     }
 
-    showError(friendly || message || fallbackMessage, {
-      title: friendly ? null : 'Error',
-    });
+    const code    = err?.code || err?.error_code || '';
+    const message = err?.message || err?.error_description || '';
+
+    // Check friendly map by code first, then by message substring
+    const friendly =
+      FRIENDLY_ERRORS[code] ||
+      Object.entries(FRIENDLY_ERRORS).find(([k]) => message.includes(k))?.[1] ||
+      null;
+
+    showError(friendly || message || fallback);
   }, [showError]);
 
   return (
     <ErrorContext.Provider value={{
-      toasts,
-      dismiss,
-      showError,
-      showSuccess,
-      showWarning,
-      showInfo,
+      toasts, dismiss,
+      showError, showSuccess, showWarning, showInfo,
       handleApiError,
     }}>
       {children}
