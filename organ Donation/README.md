@@ -72,8 +72,8 @@ https://oragan-donation-and-sharing-network-526fazl5v.vercel.app
 
 | Name | Role | GitHub |
 |------|------|--------|
-| Gauri Nikam | UI/UX Designer and Project Lead | @Missgauri |
-| Vaibhav Jaiswal | Backend and Supabase Integration | @jaiswalvaibhav019 |
+| Gauri Nikam | UI/UX Designer | @Missgauri |
+| Vaibhav Jaiswal | Backend and Supabase Integration  | @jaiswalvaibhav019 |
 | Pragati Dolas | Frontend Development | @pragatidolas |
 | Jana | Testing and Documentation | @badejana |
 
